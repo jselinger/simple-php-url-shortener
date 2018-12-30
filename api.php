@@ -1,13 +1,15 @@
 <?php 
+
+define('jsurlshort', true);
 require_once('config.php');
 require_once('alphaID.inc.php');
 
-$longURL = mysql_real_escape_string(trim($_REQUEST['url'])); // http://google.de
-$returnFormat = mysql_real_escape_string(trim($_REQUEST['format'])); // json, plain
+$returnFormat = (trim($_REQUEST['format'])); // json, plain
+$longURL = (trim($_REQUEST['url'])); // http://google.de
 $callback = $_REQUEST['callback']; // calback for json
 
 
-$result->status = true;
+@$result->status = true;
 $result->longurl = $longURL;
 
 // Error Checking
@@ -43,11 +45,15 @@ returnData($result, $returnFormat);
 * @return {String}   Returns a string value containing the row id converted with alphaID function
 */ 
 function createShortURL($longURL) {
+	global $db;
   $id = checkURL($longURL);
   if(!$id){
-    mysql_query("INSERT INTO ".DB_TABLE." (longurl) VALUES ('".$longURL."')");    
-    $id = mysql_insert_id(); 
-  }  
+	$sql = "INSERT INTO ".DB_TABLE." (longurl) VALUES (:longURL)";
+	$prep = $db->prepare($sql);
+	$prep->bindValue('longURL', $longURL);
+	$prep->execute();
+	$id = $db->lastInsertId();
+	  }  
   $newShortID = alphaID($id);
   return $newShortID;
 }
@@ -94,13 +100,18 @@ function returnError($error, $returnFormat) {
 * @return {String|Bool} Returns a ID > 0 if a ShortURL exists or false if no ShortURL exists
 */
 function checkURL($longURL) {
-  $sql_result = mysql_query("SELECT id FROM ".DB_TABLE." WHERE longurl='".$longURL."' LIMIT 0,1");  
-  if(is_resource($sql_result) && mysql_num_rows($sql_result) > 0 ){
-    $sql_result = mysql_fetch_assoc($sql_result);
-    return $sql_result["id"];
-  }else{
-    return false;
-  }
+  global $db;
+  
+	$sql = "SELECT id FROM ".DB_TABLE." WHERE longurl=:longURL LIMIT 0,1";
+	$prep = $db->prepare($sql);
+	$prep->bindValue('longURL', $longURL);
+	$prep->execute();
+	$RowDATA = $prep->fetch();
+	if($prep->rowCount() == 0){
+		return false;
+	}else{
+		return $RowDATA["id"];
+	}
 }
 
 /**
